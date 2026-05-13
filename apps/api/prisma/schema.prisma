@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  ncGroupId String   @unique @map("nc_group_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  users        User[]
+  documents    Document[]
+  chatSessions ChatSession[]
+
+  @@map("tenants")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String   @map("tenant_id")
+  email        String   @unique
+  ncUserId     String   @unique @map("nc_user_id")
+  passwordHash  String? @map("password_hash")
+  ncAppPassword String? @map("nc_app_password")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  documents    Document[]
+  chatSessions ChatSession[]
+
+  @@map("users")
+}
+
+model Document {
+  id          String      @id @default(cuid())
+  tenantId    String      @map("tenant_id")
+  ownerUserId String      @map("owner_user_id")
+  ncFileId    String?     @map("nc_file_id")
+  fileName    String      @map("file_name")
+  ncPath      String      @map("nc_path")
+  mimeType    String      @default("application/pdf") @map("mime_type")
+  fileSize    Int         @map("file_size")
+  indexStatus IndexStatus @default(PENDING) @map("index_status")
+  pageCount   Int?        @map("page_count")
+  chunkCount  Int?        @map("chunk_count")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  indexedAt   DateTime?   @map("indexed_at")
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id])
+  owner        User            @relation(fields: [ownerUserId], references: [id])
+  chunks       DocumentChunk[]
+  chatSessions ChatSession[]
+
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id          String   @id @default(cuid())
+  documentId  String   @map("document_id")
+  tenantId    String   @map("tenant_id")
+  pageNo      Int      @map("page_no")
+  paragraphNo Int      @map("paragraph_no")
+  chunkText   String   @map("chunk_text")
+  bboxJson    Json?    @map("bbox_json")
+  embeddingId String?  @map("embedding_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("document_chunks")
+}
+
+model ChatSession {
+  id         String   @id @default(cuid())
+  tenantId   String   @map("tenant_id")
+  userId     String   @map("user_id")
+  documentId String?  @map("document_id")
+  folderId   String?  @map("folder_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id])
+  user     User          @relation(fields: [userId], references: [id])
+  document Document?     @relation(fields: [documentId], references: [id])
+  messages ChatMessage[]
+
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id          String      @id @default(cuid())
+  sessionId   String      @map("session_id")
+  role        MessageRole
+  message     String
+  sourcesJson Json?       @map("sources_json")
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}
+
+enum IndexStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum MessageRole {
+  user
+  assistant
+}

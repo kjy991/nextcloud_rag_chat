@@ -1,5 +1,7 @@
 pdfplumber==0.11.4
+pymupdf==1.24.14
 qdrant-client==1.13.3
 psycopg2-binary==2.9.10
 httpx==0.28.1
 requests==2.32.3
+cryptography==48.0.0

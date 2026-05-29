@@ -4,8 +4,8 @@ import { login } from '../lib/api';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const [ncUserId, setNcUserId] = useState('');
-  const [password, setPassword] = useState('');
+  const [ncUserId, setNcUserId] = useState('user-a1');
+  const [password, setPassword] = useState('Nextcloud@2024!');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 

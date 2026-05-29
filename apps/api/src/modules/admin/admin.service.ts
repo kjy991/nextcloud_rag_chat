@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NextcloudService } from '../nextcloud/nextcloud.service';
+import type { AuthUser } from '../auth/auth.dto';
 
 @Injectable()
 export class AdminService {
@@ -9,7 +10,14 @@ export class AdminService {
     private readonly nc: NextcloudService
   ) {}
 
-  async getUsersUsage(tenantId: string) {
+  async getUsersUsage(tenantId: string, user: AuthUser) {
+    if (user.role !== 'ADMIN') {
+      throw new ForbiddenException('Admin access required');
+    }
+    if (tenantId !== user.tenantId) {
+      throw new ForbiddenException('Access denied to this tenant');
+    }
+
     const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) throw new NotFoundException(`Tenant ${tenantId} not found`);
 

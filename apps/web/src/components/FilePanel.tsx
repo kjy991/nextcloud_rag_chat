@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { type FileEntry, listFiles, uploadFile } from '../lib/api';
+import { type FileEntry, deleteFile, deleteFileByPath, listFiles, retryIndexing, uploadFile } from '../lib/api';
 
 interface Props {
   tenantId: string;
   selectedFileId: string | null;
   onSelect: (file: FileEntry) => void;
+  onDeleted?: (fileId: string | null) => void;
 }
 
-export function FilePanel({ tenantId, selectedFileId, onSelect }: Props) {
+export function FilePanel({ tenantId, selectedFileId, onSelect, onDeleted }: Props) {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [retryingFileId, setRetryingFileId] = useState<string | null>(null);
+  const [deletingNcPath, setDeletingNcPath] = useState<string | null>(null);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -53,6 +56,38 @@ export function FilePanel({ tenantId, selectedFileId, onSelect }: Props) {
     }
   }
 
+  async function handleDelete(file: FileEntry) {
+    if (!confirm('이 파일을 삭제하시겠습니까?')) return;
+    setDeletingNcPath(file.ncPath);
+    setError('');
+    try {
+      if (file.fileId) {
+        await deleteFile(file.fileId);
+      } else {
+        await deleteFileByPath(tenantId, file.ncPath);
+      }
+      onDeleted?.(file.fileId);
+      await load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '삭제 실패');
+    } finally {
+      setDeletingNcPath(null);
+    }
+  }
+
+  async function handleRetry(fileId: string) {
+    setRetryingFileId(fileId);
+    setError('');
+    try {
+      await retryIndexing(fileId);
+      await load();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '재처리 요청 실패');
+    } finally {
+      setRetryingFileId(null);
+    }
+  }
+
   return (
     <aside className="file-panel" aria-label="파일 영역">
       <div className="panel-heading">
@@ -84,23 +119,52 @@ export function FilePanel({ tenantId, selectedFileId, onSelect }: Props) {
         ) : files.length === 0 ? (
           <p className="muted">PDF 파일을 업로드해 주세요.</p>
         ) : (
-          files.map((file) => (
-            <button
-              key={file.ncPath}
-              className={`file-row${selectedFileId === file.fileId ? ' file-row--active' : ''}`}
-              type="button"
-              onClick={() => file.fileId && onSelect(file)}
-              disabled={!file.fileId || file.indexStatus !== 'COMPLETED'}
-            >
-              <span className="file-name">{file.fileName}</span>
-              <span className={`status status--${file.indexStatus.toLowerCase()}`}>
-                {file.indexStatus}
-              </span>
-              {file.pageCount != null && (
-                <span className="muted">{file.pageCount}p</span>
-              )}
-            </button>
-          ))
+          files.map((file) => {
+            const fileId = file.fileId;
+            const canSelect = !!fileId;
+            const canRetry = !!fileId && file.indexStatus === 'FAILED';
+            const isDeleting = deletingNcPath === file.ncPath;
+            return (
+              <div
+                key={file.ncPath}
+                className={`file-row${selectedFileId === fileId ? ' file-row--active' : ''}`}
+              >
+                <button
+                  className="file-row-main"
+                  type="button"
+                  onClick={() => fileId && onSelect(file)}
+                  disabled={!canSelect}
+                >
+                  <span className="file-name">{file.fileName}</span>
+                  <span className={`status status--${file.indexStatus.toLowerCase()}`}>
+                    {file.indexStatus}
+                  </span>
+                  {file.pageCount != null && (
+                    <span className="muted">{file.pageCount}p</span>
+                  )}
+                </button>
+                {canRetry && (
+                  <button
+                    className="file-row-retry"
+                    type="button"
+                    onClick={() => void handleRetry(fileId!)}
+                    disabled={retryingFileId === fileId}
+                  >
+                    {retryingFileId === fileId ? '요청 중' : '재처리'}
+                  </button>
+                )}
+                <button
+                  className="file-row-delete"
+                  type="button"
+                  onClick={() => void handleDelete(file)}
+                  disabled={isDeleting}
+                  title="삭제"
+                >
+                  {isDeleting ? '…' : '✕'}
+                </button>
+              </div>
+            );
+          })
         )}
       </div>
     </aside>

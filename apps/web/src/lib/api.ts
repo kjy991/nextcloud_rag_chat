@@ -41,12 +41,17 @@ export function logout(): void {
   localStorage.removeItem('access_token');
 }
 
-export function parseToken(): { tenantId: string; email: string; ncUserId: string } | null {
+export function parseToken(): { tenantId: string; email: string; ncUserId: string; role: 'USER' | 'ADMIN' } | null {
   const token = getToken();
   if (!token) return null;
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
-    return { tenantId: payload.tenantId, email: payload.email, ncUserId: payload.ncUserId };
+    return {
+      tenantId: payload.tenantId,
+      email: payload.email,
+      ncUserId: payload.ncUserId,
+      role: payload.role ?? 'USER'
+    };
   } catch {
     return null;
   }
@@ -102,6 +107,34 @@ export interface IndexStatus {
 
 export function getIndexStatus(fileId: string): Promise<IndexStatus> {
   return request<IndexStatus>(`/files/${fileId}/index-status`);
+}
+
+export interface RetryIndexingResponse {
+  fileId: string;
+  tenantId: string;
+  fileName: string;
+  indexStatus: 'PENDING';
+}
+
+export function retryIndexing(fileId: string): Promise<RetryIndexingResponse> {
+  return request<RetryIndexingResponse>(`/files/${fileId}/retry-indexing`, { method: 'POST' });
+}
+
+export function deleteFile(fileId: string): Promise<void> {
+  return request<void>(`/files/${fileId}`, { method: 'DELETE' });
+}
+
+export function deleteFileByPath(tenantId: string, ncPath: string): Promise<void> {
+  return request<void>(`/tenants/${tenantId}/files/by-path?ncPath=${encodeURIComponent(ncPath)}`, { method: 'DELETE' });
+}
+
+export async function getFileContent(fileId: string): Promise<ArrayBuffer> {
+  const token = localStorage.getItem('access_token');
+  const res = await fetch(`${BASE}/files/${fileId}/content`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  if (!res.ok) throw new Error('PDF 다운로드 실패');
+  return res.arrayBuffer();
 }
 
 // ── Chat ─────────────────────────────────────────────────────────────────────

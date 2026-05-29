@@ -8,6 +8,7 @@ import psycopg2
 import psycopg2.extras
 
 from services.embedder import embed_texts
+from services.credentials import decrypt_app_password
 from services.pdf_extractor import extract_chunks
 from services.vector_store import delete_document_chunks, ensure_collection, upsert_chunks
 
@@ -41,7 +42,14 @@ def fetch_pending(conn) -> list[dict]:
         return cur.fetchall()
 
 
+_ALLOWED_UPDATE_FIELDS = {"index_status", "page_count", "chunk_count", "indexed_at"}
+
+
 def set_status(conn, doc_id: str, status: str, **kwargs) -> None:
+    unknown = set(kwargs) - _ALLOWED_UPDATE_FIELDS
+    if unknown:
+        raise ValueError(f"허용되지 않은 컬럼: {unknown}")
+
     fields = {"index_status": status}
     fields.update(kwargs)
     if status == "COMPLETED":
@@ -56,6 +64,37 @@ def set_status(conn, doc_id: str, status: str, **kwargs) -> None:
     with conn.cursor() as cur:
         cur.execute(f"UPDATE documents SET {set_clause} WHERE id = %s", values)
     conn.commit()
+
+
+STUCK_PROCESSING_TIMEOUT = int(os.environ.get("STUCK_PROCESSING_TIMEOUT_MINUTES", "5"))
+STUCK_PENDING_TIMEOUT = int(os.environ.get("STUCK_PENDING_TIMEOUT_MINUTES", "3"))
+
+
+def expire_stuck_documents(
+    conn,
+    processing_timeout_minutes: int = STUCK_PROCESSING_TIMEOUT,
+    pending_timeout_minutes: int = STUCK_PENDING_TIMEOUT,
+) -> int:
+    """PROCESSING/PENDING 상태로 너무 오래 머문 문서를 FAILED로 전환한다."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE documents
+            SET index_status = 'FAILED', updated_at = NOW()
+            WHERE (
+                (index_status = 'PROCESSING' AND updated_at < NOW() - (%s * INTERVAL '1 minute'))
+                OR
+                (index_status = 'PENDING'    AND updated_at < NOW() - (%s * INTERVAL '1 minute'))
+            )
+            """,
+            (processing_timeout_minutes, pending_timeout_minutes),
+        )
+        count = cur.rowcount
+    conn.commit()
+    if count:
+        log.warning("타임아웃 문서 %d개를 FAILED로 전환했습니다 (PROCESSING >%dm / PENDING >%dm)",
+                    count, processing_timeout_minutes, pending_timeout_minutes)
+    return count
 
 
 def download_file(nc_path: str, nc_user_id: str, nc_password: str) -> bytes:
@@ -110,6 +149,7 @@ def process_document(conn, doc: dict) -> None:
     set_status(conn, doc_id, "PROCESSING")
 
     try:
+        nc_password = decrypt_app_password(nc_password)
         pdf_bytes = download_file(nc_path, nc_user_id, nc_password)
         log.info("  Downloaded %d bytes", len(pdf_bytes))
 
@@ -167,6 +207,7 @@ def main() -> None:
         try:
             conn = get_db()
             try:
+                expire_stuck_documents(conn)
                 docs = fetch_pending(conn)
                 if docs:
                     log.info("Found %d PENDING document(s)", len(docs))

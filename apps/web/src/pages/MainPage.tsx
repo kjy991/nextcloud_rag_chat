@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminPanel } from '../components/AdminPanel';
 import { ChatPanel } from '../components/ChatPanel';
 import { FilePanel } from '../components/FilePanel';
-import { type DocumentSource, type FileEntry, logout, parseToken } from '../lib/api';
+import { PdfViewer } from '../components/PdfViewer';
+import { type DocumentSource, type FileEntry, type UserUsage, getUsersUsage, logout, parseToken } from '../lib/api';
 
 export function MainPage() {
   const navigate = useNavigate();
@@ -11,10 +12,29 @@ export function MainPage() {
 
   const [selectedFile, setSelectedFile] = useState<FileEntry | null>(null);
   const [activePage, setActivePage] = useState<number>(1);
+  const [selectedSource, setSelectedSource] = useState<DocumentSource | null>(null);
+  const [myUsage, setMyUsage] = useState<UserUsage | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    getUsersUsage(user.tenantId)
+      .then((res) => {
+        const me = res.users.find((u) => u.email === user.email);
+        if (me) setMyUsage(me);
+      })
+      .catch(() => {});
+  }, []);
 
   if (!user) {
     navigate('/login');
     return null;
+  }
+
+  function fmtBytes(bytes: number): string {
+    if (bytes === 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
   }
 
   function handleLogout() {
@@ -23,6 +43,7 @@ export function MainPage() {
   }
 
   function handleSourceClick(src: DocumentSource) {
+    setSelectedSource(src);
     setActivePage(src.pageNo);
   }
 
@@ -34,6 +55,11 @@ export function MainPage() {
           <h1>Nextcloud 문서 AI 채팅</h1>
         </div>
         <div className="topbar-right">
+          {myUsage && (
+            <span className="storage-summary" title={`${fmtBytes(myUsage.usedBytes)} / ${fmtBytes(myUsage.quotaBytes)}`}>
+              저장공간 {myUsage.usagePercent}%
+            </span>
+          )}
           <span className="user-info">{user.email || user.ncUserId}</span>
           <button type="button" onClick={handleLogout} className="btn-logout">
             로그아웃
@@ -45,31 +71,34 @@ export function MainPage() {
         <FilePanel
           tenantId={user.tenantId}
           selectedFileId={selectedFile?.fileId ?? null}
-          onSelect={(file) => { setSelectedFile(file); setActivePage(1); }}
+          onSelect={(file) => { setSelectedFile(file); setActivePage(1); setSelectedSource(null); }}
+          onDeleted={(fileId) => {
+            if (!fileId || selectedFile?.fileId === fileId) {
+              setSelectedFile(null);
+              setSelectedSource(null);
+            }
+          }}
         />
 
         <section className="document-panel" aria-label="PDF 미리보기">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">PDF Viewer</p>
-              <h2>{selectedFile ? selectedFile.fileName : '파일을 선택하세요'}</h2>
+              <h2 title={selectedFile?.fileName}>{selectedFile ? selectedFile.fileName : '파일을 선택하세요'}</h2>
             </div>
-            {selectedFile && activePage > 0 && (
-              <span className="page-badge">Page {activePage}</span>
-            )}
+            {selectedFile && <span className="page-badge">Page {activePage}</span>}
           </div>
 
           <div className="pdf-surface">
-            {selectedFile ? (
-              <div className="pdf-page">
-                <p className="muted">
-                  {selectedFile.fileName} — {activePage}페이지
-                  {selectedFile.pageCount ? ` / ${selectedFile.pageCount}` : ''}
-                </p>
-                <p className="muted">
-                  (PDF Viewer: 근거 카드 클릭 시 해당 페이지로 이동합니다)
-                </p>
-              </div>
+            {selectedFile?.fileId ? (
+              <PdfViewer
+                fileId={selectedFile.fileId}
+                fileName={selectedFile.fileName}
+                pageCount={selectedFile.pageCount}
+                activePage={activePage}
+                onPageChange={setActivePage}
+                highlight={selectedSource?.pageNo === activePage ? selectedSource : null}
+              />
             ) : (
               <div className="pdf-placeholder">
                 <p>좌측 파일 목록에서 PDF를 선택하면<br />AI 채팅창이 활성화됩니다.</p>
@@ -97,7 +126,7 @@ export function MainPage() {
         )}
       </section>
 
-      <AdminPanel currentTenantId={user.tenantId} />
+      {user.role === 'ADMIN' && <AdminPanel currentTenantId={user.tenantId} />}
     </main>
   );
 }

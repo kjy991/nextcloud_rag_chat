@@ -79,8 +79,8 @@ export function ChatPanel({ fileId, fileName, onSourceClick }: Props) {
                     onClick={() => onSourceClick(src)}
                   >
                     <strong>{src.fileName}</strong>
-                    <span>{src.pageNo}페이지 · {src.paragraphNo}문단</span>
-                    <small>{src.text.slice(0, 120)}...</small>
+                    <span>{src.pageNo}p · §{src.paragraphNo}</span>
+                    <small>{src.text.slice(0, 60)}…</small>
                   </button>
                 ))}
               </div>

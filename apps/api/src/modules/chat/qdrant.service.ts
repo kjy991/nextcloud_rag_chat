@@ -27,11 +27,21 @@ export class QdrantService {
     this.collection = config.get<string>('QDRANT_COLLECTION', 'documents');
   }
 
+  async deleteByDocument(documentId: string): Promise<void> {
+    try {
+      await this.client.delete(this.collection, {
+        filter: { must: [{ key: 'documentId', match: { value: documentId } }] }
+      });
+    } catch (err) {
+      this.log.error('Qdrant delete error:', err);
+    }
+  }
+
   async search(
     vector: number[],
     tenantId: string,
     documentId: string,
-    limit = 5
+    limit = 15
   ): Promise<SearchResult[]> {
     try {
       const res = await this.client.search(this.collection, {

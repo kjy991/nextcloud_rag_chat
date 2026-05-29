@@ -19,7 +19,7 @@ function barColor(pct: number): string {
 }
 
 export function AdminPanel({ currentTenantId }: Props) {
-  const [tenantId, setTenantId] = useState(currentTenantId);
+  const [tenantId] = useState(currentTenantId);
   const [data, setData] = useState<TenantUsageResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -39,21 +39,14 @@ export function AdminPanel({ currentTenantId }: Props) {
 
   useEffect(() => { void load(tenantId); }, [tenantId]);
 
-  const tenants = ['tenant-a', 'tenant-b'];
-
   return (
     <section className="admin-panel" aria-label="관리자 사용량">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">Admin</p>
+          <p className="eyebrow">Admin · {tenantId}</p>
           <h2>사용자 저장공간</h2>
         </div>
         <div className="admin-controls">
-          <select value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
-            {tenants.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
           <button type="button" onClick={() => void load(tenantId)} disabled={loading}>
             새로고침
           </button>

@@ -38,7 +38,22 @@
       "Bash(psql *)",
       "Bash(DATABASE_URL=postgresql://rag:rag_password@localhost:5432/rag NEXTCLOUD_BASE_URL=http://localhost:8080 NEXTCLOUD_ADMIN_USER=admin NEXTCLOUD_ADMIN_PASSWORD=admin_password QDRANT_URL=http://localhost:6333 OLLAMA_BASE_URL=http://localhost:11434 POLL_INTERVAL_SECONDS=10 python3 main.py)",
       "Bash(echo \"Worker PID: $!\")",
-      "Bash(jobs -l)"
+      "Bash(jobs -l)",
+      "Bash(../../node_modules/.bin/nest start *)",
+      "Bash(echo \"NestJS PID: $!\")",
+      "Bash(python infra/test_checklist.py --list)",
+      "Bash(python *)",
+      "Bash(grep *)",
+      "Bash(kill %1)",
+      "Bash(cat apps/api/.env)",
+      "Bash(cat .env)",
+      "Bash(ls *.env .env*)",
+      "Bash(xargs ps -p)",
+      "Bash(ps -p 31713,1165,92917,30623 -o pid,command)",
+      "Bash(pkill -f \"nest start\")",
+      "Bash(echo \"PID: $!\")",
+      "Bash(kill 85890)",
+      "Bash(npx jest *)"
     ]
   }
 }

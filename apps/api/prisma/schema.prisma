@@ -25,6 +25,7 @@ model User {
   tenantId     String   @map("tenant_id")
   email        String   @unique
   ncUserId     String   @unique @map("nc_user_id")
+  role         UserRole @default(USER)
   passwordHash  String? @map("password_hash")
   ncAppPassword String? @map("nc_app_password")
   createdAt    DateTime @default(now()) @map("created_at")
@@ -49,6 +50,7 @@ model Document {
   pageCount   Int?        @map("page_count")
   chunkCount  Int?        @map("chunk_count")
   createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
   indexedAt   DateTime?   @map("indexed_at")
 
   tenant       Tenant          @relation(fields: [tenantId], references: [id])
@@ -114,4 +116,9 @@ enum IndexStatus {
 enum MessageRole {
   user
   assistant
+}
+
+enum UserRole {
+  USER
+  ADMIN
 }

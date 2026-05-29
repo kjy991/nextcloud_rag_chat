@@ -5,7 +5,7 @@ import { QdrantService } from './qdrant.service';
 import type { AuthUser } from '../auth/auth.dto';
 import type { ChatResponse, DocumentSource } from './chat.dto';
 
-const SCORE_THRESHOLD = 0.3;
+const SCORE_THRESHOLD = 0.2;
 const NO_ANSWER = '문서에서 확인 불가';
 
 @Injectable()
@@ -23,10 +23,14 @@ export class ChatService {
     if (!doc) throw new NotFoundException('Document not found');
     if (doc.ownerUserId !== user.id) throw new ForbiddenException();
 
-    // Create or reuse chat session
-    const session = await this.prisma.chatSession.create({
-      data: { tenantId: user.tenantId, userId: user.id, documentId: fileId }
-    });
+    // Reuse existing session for this user+document, create only if none exists
+    const session =
+      (await this.prisma.chatSession.findFirst({
+        where: { tenantId: user.tenantId, userId: user.id, documentId: fileId }
+      })) ??
+      (await this.prisma.chatSession.create({
+        data: { tenantId: user.tenantId, userId: user.id, documentId: fileId }
+      }));
 
     // Save user message
     await this.prisma.chatMessage.create({

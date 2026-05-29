@@ -1,5 +1,7 @@
 import { IsString, MinLength } from 'class-validator';
 
+export type UserRole = 'USER' | 'ADMIN';
+
 export class LoginDto {
   @IsString()
   ncUserId: string;
@@ -14,6 +16,7 @@ export interface JwtPayload {
   ncUserId: string;
   tenantId: string;
   email: string;
+  role: UserRole;
 }
 
 export interface AuthUser {
@@ -21,4 +24,5 @@ export interface AuthUser {
   ncUserId: string;
   tenantId: string;
   email: string;
+  role: UserRole;
 }

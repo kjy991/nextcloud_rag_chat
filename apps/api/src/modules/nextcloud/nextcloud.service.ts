@@ -174,7 +174,7 @@ export class NextcloudService {
     ncPassword?: string
   ): Promise<string> {
     const ncPath = `${folderPath}/${fileName}`;
-    const url = `${this.baseUrl}/remote.php/dav/files/${ncUserId}${ncPath}`;
+    const url = `${this.baseUrl}/remote.php/dav/files/${ncUserId}${this.encodePath(ncPath)}`;
     const authHttp = ncPassword
       ? axios.create({ auth: { username: ncUserId, password: ncPassword }, timeout: 60_000 })
       : this.http;
@@ -189,8 +189,21 @@ export class NextcloudService {
     }
   }
 
+  async deleteFile(ncUserId: string, ncPath: string, ncPassword?: string): Promise<void> {
+    const url = `${this.baseUrl}/remote.php/dav/files/${ncUserId}${this.encodePath(ncPath)}`;
+    const authHttp = ncPassword
+      ? axios.create({ auth: { username: ncUserId, password: ncPassword }, timeout: 15_000 })
+      : this.http;
+    try {
+      await authHttp.delete(url);
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err) && err.response?.status === 404) return; // already gone
+      this.throwIfNcError(err, `delete ${ncPath}`);
+    }
+  }
+
   async downloadFile(ncUserId: string, ncPath: string, ncPassword?: string): Promise<Buffer> {
-    const url = `${this.baseUrl}/remote.php/dav/files/${ncUserId}${ncPath}`;
+    const url = `${this.baseUrl}/remote.php/dav/files/${ncUserId}${this.encodePath(ncPath)}`;
     const authHttp = ncPassword
       ? axios.create({ auth: { username: ncUserId, password: ncPassword }, timeout: 120_000 })
       : this.http;
@@ -203,6 +216,10 @@ export class NextcloudService {
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
+
+  private encodePath(ncPath: string): string {
+    return ncPath.split('/').map((seg) => (seg ? encodeURIComponent(seg) : '')).join('/');
+  }
 
   private throwIfNcError(err: unknown, context: string): never {
     if (axios.isAxiosError(err)) {

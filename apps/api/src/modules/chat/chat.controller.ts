@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Post, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, Param, Post, Request, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthUser } from '../auth/auth.dto';
 import { ChatService } from './chat.service';
@@ -14,6 +14,7 @@ export class ChatController {
   constructor(private readonly chat: ChatService) {}
 
   @Post(':fileId/chat')
+  @HttpCode(200)
   ask(
     @Param('fileId') fileId: string,
     @Body() dto: AskDto,

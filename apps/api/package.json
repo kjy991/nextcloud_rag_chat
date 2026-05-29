@@ -11,6 +11,7 @@
     "test": "jest",
     "migrate": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
+    "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts",
     "studio": "prisma studio",
     "generate": "prisma generate"
   },

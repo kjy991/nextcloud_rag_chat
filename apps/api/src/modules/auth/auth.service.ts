@@ -1,5 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { appPasswordSecret, encryptAppPassword } from '../../common/app-password.crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { NextcloudService } from '../nextcloud/nextcloud.service';
 import type { JwtPayload } from './auth.dto';
@@ -9,7 +11,8 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly nc: NextcloudService,
-    private readonly jwt: JwtService
+    private readonly jwt: JwtService,
+    private readonly config: ConfigService
   ) {}
 
   async login(ncUserId: string, password: string): Promise<{ accessToken: string }> {
@@ -23,14 +26,15 @@ export class AuthService {
     const appPassword = await this.nc.generateAppPassword(ncUserId, password);
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { ncAppPassword: appPassword }
+      data: { ncAppPassword: encryptAppPassword(appPassword, appPasswordSecret(this.config)) }
     });
 
     const payload: JwtPayload = {
       sub: user.id,
       ncUserId: user.ncUserId,
       tenantId: user.tenantId,
-      email: user.email
+      email: user.email,
+      role: user.role as JwtPayload['role']
     };
 
     return { accessToken: this.jwt.sign(payload) };

@@ -21,8 +21,10 @@
     "infra:logs": "docker compose -f infra/docker-compose.yml logs -f",
     "nc:init": "bash infra/init-nextcloud.sh",
     "db:migrate": "npm run migrate -w @nextcloud-rag/api",
+    "db:seed": "npm run seed -w @nextcloud-rag/api",
     "db:studio": "npm run studio -w @nextcloud-rag/api",
-    "test:integration": "bash infra/test-integration.sh"
+    "test:integration": "bash infra/test-integration.sh",
+    "screenshots": "node scripts/capture-screenshots.js"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
